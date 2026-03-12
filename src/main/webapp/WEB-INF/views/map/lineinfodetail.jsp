@@ -136,23 +136,39 @@
       lineCoords.push(latlng);
 
       const markerContent = document.createElement("div");
-      markerContent.innerHTML =
-        '<i class="fa-solid fa-train-subway" style="font-size:14px; color:' + station.lineColor + '; cursor:pointer;"></i>';
-      markerContent.style.cssText = "position:relative; transform:translate(-50%,-50%); display:inline-block;";
+      markerContent.style.cssText =
+        "width:10px; height:10px; border-radius:50%; background:white;" +
+        "border:3px solid " + (station.lineColor || "#333") + ";" +
+        "cursor:pointer; transition:transform 0.15s;" +
+        "position:relative; transform:translate(-50%,-50%);";
+
+      markerContent.addEventListener("mouseenter", () => {
+        markerContent.style.transform = "translate(-50%,-50%) scale(1.8)";
+        markerContent.style.background = station.lineColor || "#333";
+      });
+      markerContent.addEventListener("mouseleave", () => {
+        markerContent.style.transform = "translate(-50%,-50%) scale(1)";
+        markerContent.style.background = "white";
+      });
 
       const customOverlay = new kakao.maps.CustomOverlay({ position: latlng, content: markerContent, map: map });
 
       const stationName = station.name || station.BLDN_NM || "";
-      const infowindow = new kakao.maps.InfoWindow({
-        content: '<div style="padding:3px 6px; font-size:12px; text-align:center;">' + stationName + '</div>',
-        removable: true
-      });
+      const tooltip = document.createElement("div");
+      tooltip.style.cssText =
+        "position:absolute; bottom:18px; left:50%; transform:translateX(-50%);" +
+        "background:white; border-radius:6px; overflow:hidden;" +
+        "box-shadow:0 2px 8px rgba(0,0,0,0.18); white-space:nowrap; display:none; z-index:10;";
+      tooltip.innerHTML =
+        '<div style="height:4px; background:' + (station.lineColor || "#333") + ';"></div>' +
+        '<div style="padding:5px 10px; font-size:12px; font-weight:600; color:#222;">' + stationName + '</div>';
+      markerContent.appendChild(tooltip);
 
       markerContent.addEventListener("click", () => {
-        if (openInfoWindow) openInfoWindow.close();
-        infowindow.setPosition(latlng);
-        infowindow.open(map);
-        openInfoWindow = infowindow;
+        // 다른 툴팁 닫기
+        document.querySelectorAll(".station-tooltip").forEach(el => el.style.display = "none");
+        tooltip.style.display = "block";
+        tooltip.classList.add("station-tooltip");
         fetchNearbyPlaces(station);
       });
 
