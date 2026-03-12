@@ -18,43 +18,21 @@ GAMJAS는 지하철 노선도 + Kakao Map API를 기반으로
 ## 🛠️ 기술 스택
 
 Backend
-
-Java
-
-Servlet / JSP (MVC Architecture)
-
-MyBatis
-
-JSTL
+Java, Servlet / JSP (MVC Architecture),MyBatis
 
 Frontend
-
-HTML5
-
-CSS3
-
-JavaScript (AJAX)
+HTML5, CSS3, JavaScript (AJAX)
 
 Map API
-
 Kakao Maps JavaScript SDK
 
 UI
-
-FontAwesome
-
-Database
-
-MariaDB
+FontAwesome, Database, MariaDB
 
 Infrastructure / Deployment
 
 AWS EC2
-
-Docker
-
-Cloudflare
-
+Docker, Cloudflare
 
 
 ## 📅 리빌드 주요 변경사항
