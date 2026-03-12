@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="mapper.StationMapper">
+
+    <resultMap id="stationMap" type="domain.Station">
+        <result property="id"          column="id"/>
+        <result property="name"        column="name"/>
+        <result property="lineName"    column="line_name"/>
+        <result property="lat"         column="lat"/>
+        <result property="lng"         column="lng"/>
+        <result property="odr"         column="odr"/>
+        <result property="branchGroup" column="branch_group"/>  <!-- 소문자 b -->
+    </resultMap>
+
+<!--    <insert id="insert">-->
+<!--        insert into tbl_station (id, name, line_name, lat, lng)-->
+<!--        values (#{id}, #{name}, #{lineName}, #{lat}, #{lng})-->
+<!--    </insert>-->
+
+<!--    <select id="selectByLine" parameterType="String" resultMap="stationMap">-->
+<!--        select id, name, line_name, lat, lng, odr-->
+<!--        from tbl_station-->
+<!--        where line_name = #{lineName}-->
+<!--          and odr is not null-->
+<!--        order by odr-->
+<!--    </select>-->
+
+    <insert id="insert">
+        INSERT INTO tbl_station (id, name, line_name, lat, lng, odr, branch_group)
+        VALUES (#{id}, #{name}, #{lineName}, #{lat}, #{lng}, #{odr}, #{branchGroup})
+    </insert>
+
+    <select id="selectByLine" parameterType="String" resultMap="stationMap">
+        SELECT id, name, line_name, lat, lng, odr, branch_group
+        FROM tbl_station
+        WHERE line_name = #{value}
+          AND odr IS NOT NULL
+        ORDER BY branch_group, odr
+    </select>
+
+    <select id="selectLine1All" resultMap="stationMap">
+        SELECT id, name, line_name, lat, lng, odr, branch_group
+        FROM tbl_station
+        WHERE line_name IN ('장항선', '경부선', '경인선', '1호선', '중앙선', '경원선')
+          AND odr IS NOT NULL
+        ORDER BY odr, line_name, name
+    </select>
+
+    <select id="selectLine2" resultMap="stationMap">
+        SELECT id, name, line_name, lat, lng, odr, branch_group
+        FROM tbl_station
+        WHERE line_name = '2호선'
+          AND odr IS NOT NULL
+        ORDER BY branch_group, odr
+    </select>
+
+    <select id="selectLine5" resultMap="stationMap">
+        SELECT id, name, line_name, lat, lng, odr, branch_group
+        FROM tbl_station
+        WHERE line_name = '5호선'
+          AND odr IS NOT NULL
+        ORDER BY branch_group, odr
+    </select>
+
+</mapper>

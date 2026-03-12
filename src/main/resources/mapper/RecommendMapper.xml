@@ -1,0 +1,180 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+  PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+  "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="mapper.RecommendMapper">
+	<resultMap id="r" type="recommend">
+  		<id property="recomNo" column="recom_no"/>
+  		<result property="recomContenttype" column="recom_contenttype"/>
+  		<result property="recomPlaceId" column="recom_place_id"/>
+  		<result property="apiSubcontent" column="api_subcontent"/>
+  		<result property="stationId" column="station_id"/>
+  		<result property="memNo" column="mem_no"/>
+  		<result property="regdatetime" column="regdatetime"/>
+  		<result property="moddatetime" column="moddatetime"/>
+  		<result property="title" column="title"/>
+		<result property="firstImage" column="first_image"/>
+		
+		 <collection property="stations" ofType="stationsbyrecom">
+        	<result property="stationId" column="station_id"/>
+	        <result property="stationName" column="station_name"/>
+	        <result property="stationLine" column="station_line"/>
+	        <result property="id" column="id"/>
+	        <result property="title" column="title"/>
+	        <result property="lat" column="lat"/>
+	        <result property="lng" column="lng"/>
+	        <result property="type" column="type"/>
+	        <result property="addr" column="addr"/>
+	        <result property="dist" column="dist"/>
+	    </collection>
+	</resultMap>
+	<resultMap id="s" type="stationsbyrecom">
+		<result property="stationId" column="station_id"/>
+		<result property="stationName" column="station_name"/>
+		<result property="stationLine" column="station_line"/>
+		<result property="id" column="id"/>
+		<result property="title" column="title"/>
+		<result property="lat" column="lat"/>
+		<result property="lng" column="lng"/>
+		<result property="type" column="type"/>
+		<result property="addr" column="addr"/>
+		<result property="dist" column="dist"/>
+	</resultMap>
+	
+	<sql id="cri">
+		<where>
+			<trim prefixOverrides="AND | OR">
+			and recom_contenttype = #{type}
+			<if test="criteria.types != null">
+				<foreach collection="criteria.types" item="t" open="and (" close=")" separator="or">
+					<choose>
+						<when test="t eq 'T'.toString()">
+						title like concat('%', #{criteria.keyword}, '%')
+						</when>
+						<when test="t eq 'C'.toString()">
+						api_subcontent like concat('%', #{criteria.keyword}, '%')
+						</when>
+						<when test="t eq 'I'.toString()">
+						mem_no like concat('%', #{criteria.keyword}, '%')
+						</when>
+					</choose>
+				</foreach>
+			</if>
+			</trim>
+		</where>
+	</sql>
+	<!-- 목록조회 -->
+	<select id="list" resultMap="r">
+		select * from (
+		    SELECT trp.*, 
+		           COALESCE(ta.post_sj, tr.post_sj, tf.title) AS title,
+					tf.firstimage as first_image
+		    FROM tbl_recommend_place trp
+		    LEFT JOIN tbl_attraction ta 
+		        ON trp.recom_contenttype = 'ATTRACTION' AND ta.post_sn = trp.recom_place_id
+		    LEFT JOIN tbl_restaurant tr 
+		        ON trp.recom_contenttype = 'RESTAURANT' AND tr.post_sn = trp.recom_place_id
+		    LEFT JOIN tbl_festival tf 
+		        ON trp.recom_contenttype = 'FESTIVAL' AND tf.content_id = trp.recom_place_id
+		) a
+		<include refid="cri"/>
+		order by 1 desc 
+		limit #{criteria.amount} offset #{criteria.offset}
+	</select>
+	<!-- 단일조회 -->
+	<!-- 글 등록 -->
+	<insert id="insert">
+		insert into tbl_recommend_place (recom_contenttype, recom_place_id, api_subcontent, station_id, mem_no) values (#{recomContenttype}, #{recomPlaceId}, #{apiSubcontent}, #{stationId}, #{memNo})
+	<selectKey keyProperty="recomNo" resultType="Long" order="AFTER">
+		select max(recom_no) from tbl_recommend_place
+	</selectKey>
+	</insert>
+	<update id="update">
+		update tbl_recommend_place trp
+		set 
+		api_subcontent = #{apiSubcontent},
+		moddatetime = now()
+		where trp.recom_no = #{recomNo}
+	</update>
+	
+	<update id="insertRecomAttr">
+		update tbl_attraction ta
+		join tbl_recommend_place tr on ta.post_sn = tr.recom_place_id
+		set ta.recom_no = tr.recom_no
+		where tr.recom_contenttype ="ATTRACTION"
+	</update>
+	
+	<update id="insertRecomRest">
+		update tbl_restaurant tr
+		join tbl_recommend_place trp on tr.post_sn = trp.recom_place_id
+		set tr.recom_no = trp.recom_no
+		where trp.recom_contenttype ="RESTAURANT"
+	</update>
+	
+	<update id="insertRecomFest">
+		update tbl_festival tf
+		join tbl_recommend_place trp on tf.content_id = trp.recom_place_id
+		set tf.recom_no = trp.recom_no
+		where trp.recom_contenttype ="FESTIVAL"
+	</update>
+	
+	<select id="selectOne" resultMap="r">
+		select * from tbl_recommend_place where recom_no = #{recomNo}
+	</select>
+	
+	<select id="getCount" resultType="long">
+		select count(*) from (
+		    SELECT trp.*, 
+		           COALESCE(ta.post_sj, tr.post_sj, tf.title) AS title
+		    FROM tbl_recommend_place trp
+		    LEFT JOIN tbl_attraction ta 
+		        ON trp.recom_contenttype = 'ATTRACTION' AND ta.post_sn = trp.recom_place_id
+		    LEFT JOIN tbl_restaurant tr 
+		        ON trp.recom_contenttype = 'RESTAURANT' AND tr.post_sn = trp.recom_place_id
+		    LEFT JOIN tbl_festival tf 
+		        ON trp.recom_contenttype = 'FESTIVAL' AND tf.content_id = trp.recom_place_id
+		) a
+		<include refid="cri"/>
+	</select>
+	
+	<delete id="delete">
+		delete from tbl_recommend_place 
+		where recom_no = #{recomNo}
+	</delete>
+	
+	<update id="removeRecomAttr">
+		update tbl_attraction ta
+		set ta.recom_no = null
+		where ta.recom_no = #{recomNo}
+	</update>
+	
+	<update id="removeRecomRest">
+		update tbl_restaurant tr
+		set tr.recom_no = null
+		where tr.recom_no = #{recomNo}
+	</update>
+	<update id="removeRecomFest">
+		update tbl_festival tf
+		set tf.recom_no = null
+		where tf.recom_no = #{recomNo}
+	</update>
+	<select id="selectImgByRecomNo" resultType="String">
+		select img.src
+		from tbl_recommend_place trp
+		left join tbl_attr_rest_imgsrc img on trp.recom_place_id = img.fk
+		where trp.recom_no = #{recomNo};
+	</select> 
+	<select id="selectStationByrecomPlaceId" resultMap="s">
+		(select * from (
+		select * from v_place_dist
+		where type = #{type} and id = #{id} and dist &lt;= 1000 and station_line in ('1호선', '2호선', '3호선', '4호선', '5호선', '6호선', '7호선', '8호선', '9호선') 
+		order by dist asc
+		limit 10) as a)
+		UNION 
+		(select * from (
+		select * from v_place_dist
+		where type = #{type} and id = #{id} and station_line in ('1호선', '2호선', '3호선', '4호선', '5호선', '6호선', '7호선', '8호선', '9호선')
+		order by dist asc
+		limit 1 ) as b);
+	</select>
+</mapper>
