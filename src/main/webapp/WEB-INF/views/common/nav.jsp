@@ -10,7 +10,7 @@
     <div class="main-header">
       <!-- 로고 -->
     
-        <a  href="${cp}" style="width: 160px;" class="d-flex align-items-center"><img src="${cp}/img/logo.svg" alt="#" style="width: 160px; height: 28px; "></a>
+        <a  href="${cp}/" style="width: 160px;" class="d-flex align-items-center"><img src="${cp}/img/logo.svg" alt="#" style="width: 160px; height: 28px; "></a>
      
       <!-- 중앙 메뉴 -->
       <div class="main-menu-area">
