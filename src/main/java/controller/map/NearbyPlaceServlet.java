@@ -23,6 +23,7 @@ public class NearbyPlaceServlet extends HttpServlet {
 	@Override
 	protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
 		String stationName = req.getParameter("stationName");
+		System.out.println("[Servlet] stationName = " + stationName);
 		
 		if(stationName == null) {	//id 없을 때 에러 메세지
 			resp.sendError(HttpServletResponse.SC_BAD_REQUEST, "missing stationName");

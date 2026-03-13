@@ -113,8 +113,13 @@
     $.ajax({
       url: "${cp}/nearbyPlaces?stationName=" + encodeURIComponent(stationName),
       method: "GET",
-      success: function(data) { drawPlaceMarkers(data); },
-      error: function() { alert("주변 장소 정보 못불러옴"); }
+      success: function(data) {
+        console.log("===== nearbyPlaces 응답 =====", data);
+        console.log("타입:", typeof data, Array.isArray(data));
+        drawPlaceMarkers(data); },
+      error: function() {
+        console.error("주변 장소 요청 실패", xhr, status, err);
+        alert("주변 장소 정보 못불러옴"); }
     });
   }
 

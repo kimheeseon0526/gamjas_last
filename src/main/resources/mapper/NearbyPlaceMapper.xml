@@ -1,26 +1,60 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE mapper
-  PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
-  "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 
 <mapper namespace="mapper.NearbyPlaceMapper">
 
-<resultMap id="placeMap" type="domain.Place">
-  <result property="stationId" column="station_id"/>
-  <result property="stationName" column="station_name"/>
-  <result property="title" column="title"/>
-  <result property="lat" column="lat"/>
-  <result property="lng" column="lng"/>
-  <result property="type" column="type"/>
-  <result property="addr" column="addr"/>
-  <result property="dist" column="dist"/>
-</resultMap>
+  <resultMap id="placeMap" type="domain.Place">
+    <result property="stationName" column="station_name"/>
+    <result property="title"       column="title"/>
+    <result property="lat"         column="lat"/>
+    <result property="lng"         column="lng"/>
+    <result property="type"        column="type"/>
+    <result property="addr"        column="addr"/>
+    <result property="dist"        column="dist"/>
+  </resultMap>
 
-<!-- 주변 장소 -->
-<select id="selectNearbyPlaces" parameterType="string" resultMap="placeMap">
-select station_name, title, lat, lng, type, addr, dist
-from v_place_dist
-where station_name= #{stationName}
-AND dist &lt;= 1000
-</select>
+  <select id="selectNearbyPlaces" parameterType="string" resultMap="placeMap">
+    <![CDATA[
+        SELECT t.*
+        FROM (
+            SELECT s.name AS station_name, a.post_sj AS title, a.lat, a.lng,
+                'attraction' AS type, COALESCE(a.new_address, a.address) AS addr,
+                6371000 * ACOS(LEAST(1,
+                    COS(RADIANS(s.lat)) * COS(RADIANS(a.lat)) * COS(RADIANS(a.lng) - RADIANS(s.lng)) +
+                    SIN(RADIANS(s.lat)) * SIN(RADIANS(a.lat))
+                )) AS dist
+            FROM tbl_station s CROSS JOIN tbl_attraction a
+            WHERE s.name = #{stationName}
+
+            UNION ALL
+
+            SELECT s.name AS station_name, r.post_sj AS title, r.lat, r.lng,
+                'restaurant' AS type, COALESCE(r.new_address, r.address) AS addr,
+                6371000 * ACOS(LEAST(1,
+                    COS(RADIANS(s.lat)) * COS(RADIANS(r.lat)) * COS(RADIANS(r.lng) - RADIANS(s.lng)) +
+                    SIN(RADIANS(s.lat)) * SIN(RADIANS(r.lat))
+                )) AS dist
+            FROM tbl_station s CROSS JOIN tbl_restaurant r
+            WHERE s.name = #{stationName}
+
+            UNION ALL
+
+            SELECT s.name AS station_name, f.title AS title,
+                CAST(f.mapy AS DOUBLE) AS lat, CAST(f.mapx AS DOUBLE) AS lng,
+                'festival' AS type, f.addr1 AS addr,
+                6371000 * ACOS(LEAST(1,
+                    COS(RADIANS(s.lat)) * COS(RADIANS(CAST(f.mapy AS DOUBLE))) *
+                    COS(RADIANS(CAST(f.mapx AS DOUBLE)) - RADIANS(s.lng)) +
+                    SIN(RADIANS(s.lat)) * SIN(RADIANS(CAST(f.mapy AS DOUBLE)))
+                )) AS dist
+            FROM tbl_station s CROSS JOIN tbl_festival f
+            WHERE s.name = #{stationName}
+        ) AS t
+        WHERE t.dist <= 1000
+        ORDER BY t.dist
+    ]]>
+  </select>
+
 </mapper>
