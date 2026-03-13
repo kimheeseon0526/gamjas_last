@@ -15,7 +15,75 @@
 
   <style>
       html, body { margin: 0; padding: 0; min-height: 100vh; }
-      #map-wrapper { min-height: 700px; }
+
+      .filter-tabs {
+          display: flex;
+          gap: 8px;
+          margin-bottom: 12px;
+          flex-wrap: wrap;
+      }
+      .filter-tab {
+          padding: 5px 14px;
+          border-radius: 20px;
+          border: 1.5px solid #ddd;
+          background: white;
+          font-size: 13px;
+          font-weight: 600;
+          cursor: pointer;
+          transition: all 0.15s;
+          color: #555;
+      }
+      .filter-tab:hover { border-color: #aaa; }
+      .filter-tab.active { color: white; border-color: transparent; }
+      .filter-tab[data-type="all"].active        { background: #444; }
+      .filter-tab[data-type="restaurant"].active { background: #e74c3c; }
+      .filter-tab[data-type="attraction"].active  { background: #1a9e8f; }
+      .filter-tab[data-type="festival"].active    { background: #e67e22; }
+
+      .recomm-card {
+          background: white;
+          border-radius: 8px;
+          padding: 12px 14px;
+          box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+          cursor: pointer;
+          transition: box-shadow 0.2s, transform 0.15s;
+      }
+      .recomm-card:hover {
+          box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+          transform: translateY(-2px);
+      }
+      .recomm-card.hidden { display: none; }
+      .place-title {
+          font-size: 14px;
+          font-weight: 700;
+          color: #222;
+          margin: 0 0 6px;
+      }
+      .place-meta {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          margin-bottom: 4px;
+      }
+      .place-dist { font-size: 13px; font-weight: 600; color: #333; }
+      .place-badge {
+          font-size: 11px;
+          font-weight: 600;
+          padding: 2px 8px;
+          border-radius: 20px;
+          color: white;
+      }
+      .badge-restaurant { background: #e74c3c; }
+      .badge-attraction  { background: #1a9e8f; }
+      .badge-festival    { background: #e67e22; }
+      .place-addr {
+          font-size: 11px;
+          color: #999;
+          margin: 0;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+      }
   </style>
 </head>
 
@@ -34,11 +102,29 @@
   </div>
 </div>
 
-<div id="map-wrapper" style="display: flex; justify-content: space-between; align-items: flex-start; gap: 24px; margin-top: 32px; margin-bottom: 64px; padding: 0 5%;">
-  <div id="map" style="flex: 1; min-width: 600px; height: 600px; border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);"></div>
-  <div id="mission-box" style="flex: 0.8; min-width: 280px; height: 600px; background: #f8f8f8; border-radius: 10px; box-shadow: 0 2px 6px rgba(0,0,0,0.08); padding: 20px;">
-    <h3 style="margin-bottom: 12px;">추천 리스트</h3>
-    <div id="recomm-content">마커를 클릭하면 정보가 표시됩니다.</div>
+<div id="map-wrapper" style="display:flex; justify-content:space-between; align-items:flex-start; gap:24px; margin-top:32px; margin-bottom:64px; padding:0 5%;">
+  <div id="map" style="flex:1; min-width:600px; height:600px; border-radius:10px; box-shadow:0 2px 8px rgba(0,0,0,0.1);"></div>
+
+  <div id="mission-box" style="
+    flex: 0.8;
+    min-width: 280px;
+    height: 600px;
+    background: #f8f8f8;
+    border-radius: 10px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    box-sizing: border-box;
+  ">
+    <h3 style="margin: 0 0 6px;">추천 리스트</h3>
+    <p id="recomm-header" style="font-size:13px; color:#666; margin:0 0 10px;"></p>
+    <div id="filter-tab-area"></div>
+    <div id="recomm-grid" style="flex:1; overflow-y:auto; min-height:0; display:grid; grid-template-columns:1fr 1fr; gap:10px; padding-bottom:10px;">
+      <div id="recomm-placeholder" style="grid-column:1/-1;">
+        <p style="color:#aaa; font-size:13px;">마커를 클릭하면 정보가 표시됩니다.</p>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -52,60 +138,111 @@
   let markers = [];
   let polylines = [];
   let placeOverlays = [];
+  let currentFilter = "all";
 
   function clearMap() {
-    markers.forEach(m => m.setMap(null));
-    markers = [];
-    polylines.forEach(p => p.setMap(null));
-    polylines = [];
-    placeOverlays.forEach(o => o.setMap(null));
-    placeOverlays = [];
+    markers.forEach(m => m.setMap(null)); markers = [];
+    polylines.forEach(p => p.setMap(null)); polylines = [];
+    placeOverlays.forEach(o => o.setMap(null)); placeOverlays = [];
     if (openInfoWindow) { openInfoWindow.close(); openInfoWindow = null; }
-    const contentBox = document.getElementById("recomm-content");
-    if (contentBox) contentBox.innerHTML = "마커를 클릭하면 정보가 표시됩니다.";
+
+    document.getElementById("recomm-header").textContent = "";
+    document.getElementById("filter-tab-area").innerHTML = "";
+    const grid = document.getElementById("recomm-grid");
+    grid.innerHTML = '<div id="recomm-placeholder" style="grid-column:1/-1;"><p style="color:#aaa;font-size:13px;">마커를 클릭하면 정보가 표시됩니다.</p></div>';
+    currentFilter = "all";
   }
 
   function getFontAwesomeIcon(type) {
-    if (type === "restaurant") return '<i class="fas fa-utensils" style="color:tomato; font-size:16px;"></i>';
-    if (type === "festival")   return '<i class="fas fa-music" style="color:orange; font-size:16px;"></i>';
-    if (type === "attraction") return '<i class="fas fa-camera" style="color:teal; font-size:16px;"></i>';
-    return '<i class="fas fa-map-marker-alt" style="color:gray; font-size:16px;"></i>';
+    if (type === "restaurant") return '<i class="fas fa-utensils" style="color:tomato;font-size:16px;"></i>';
+    if (type === "festival")   return '<i class="fas fa-music" style="color:orange;font-size:16px;"></i>';
+    if (type === "attraction") return '<i class="fas fa-camera" style="color:teal;font-size:16px;"></i>';
+    return '<i class="fas fa-map-marker-alt" style="color:gray;font-size:16px;"></i>';
   }
 
-  function drawPlaceMarkers(places) {
+  function getTypeBadge(type) {
+    if (type === "restaurant") return '<span class="place-badge badge-restaurant">식당</span>';
+    if (type === "festival")   return '<span class="place-badge badge-festival">축제</span>';
+    if (type === "attraction") return '<span class="place-badge badge-attraction">관광</span>';
+    return '<span class="place-badge" style="background:#999">기타</span>';
+  }
+
+  function applyFilter(type) {
+    currentFilter = type;
+    document.querySelectorAll(".filter-tab").forEach(tab => {
+      tab.classList.toggle("active", tab.dataset.type === type);
+    });
+    document.querySelectorAll(".recomm-card").forEach(card => {
+      card.classList.toggle("hidden", type !== "all" && card.dataset.type !== type);
+    });
+    const visible = document.querySelectorAll(".recomm-card:not(.hidden)").length;
+    const header = document.getElementById("recomm-header");
+    if (header) header.textContent = header.dataset.base + " (" + visible + "개)";
+  }
+
+  function drawPlaceMarkers(places, stationName) {
     placeOverlays.forEach(p => p.setMap(null));
     placeOverlays = [];
-    const contentBox = document.getElementById("recomm-content");
-    contentBox.innerHTML = "";
+
+    const header = document.getElementById("recomm-header");
+    const tabArea = document.getElementById("filter-tab-area");
+    const grid = document.getElementById("recomm-grid");
+
+    grid.innerHTML = "";
 
     if (!places || places.length === 0) {
-      contentBox.innerHTML = "<p>반경 1km 내의 추천 리스트가 없습니다</p>";
+      header.textContent = "";
+      tabArea.innerHTML = "";
+      grid.innerHTML = '<div style="grid-column:1/-1;"><p>반경 1km 내의 추천 리스트가 없습니다</p></div>';
       return;
     }
 
+    // 헤더
+    header.dataset.base = (stationName || "") + " 주변 장소";
+    header.textContent = header.dataset.base + " (" + places.length + "개)";
+
+    // 필터 탭
+    tabArea.innerHTML =
+      '<div class="filter-tabs">' +
+      '<button class="filter-tab active" data-type="all">전체</button>' +
+      '<button class="filter-tab" data-type="restaurant">식당</button>' +
+      '<button class="filter-tab" data-type="attraction">관광</button>' +
+      '<button class="filter-tab" data-type="festival">축제</button>' +
+      '</div>';
+    tabArea.querySelectorAll(".filter-tab").forEach(tab => {
+      tab.addEventListener("click", () => applyFilter(tab.dataset.type));
+    });
+
+    // 카드
     places.forEach(place => {
       const lat = parseFloat(place.lat);
       const lng = parseFloat(place.lng);
       if (isNaN(lat) || isNaN(lng)) return;
 
       const latlng = new kakao.maps.LatLng(lat, lng);
+
       const overlayContent = document.createElement("div");
       overlayContent.innerHTML = getFontAwesomeIcon(place.type);
-      overlayContent.style.cssText = "position:relative; transform:translate(-50%,-100%); display:inline-block; cursor:pointer;";
-
+      overlayContent.style.cssText = "position:relative;transform:translate(-50%,-100%);display:inline-block;cursor:pointer;";
       const overlay = new kakao.maps.CustomOverlay({ position: latlng, content: overlayContent, yAnchor: 1, map: map });
       placeOverlays.push(overlay);
+      overlayContent.addEventListener("click", () => map.panTo(latlng));
 
       const item = document.createElement("div");
       item.classList.add("recomm-card");
+      item.dataset.type = place.type;
       item.innerHTML =
-        '<h4 style="margin: 6px 0 4px;">' + place.title + '</h4>' +
-        '<p style="font-size: 14px; color: #444;">' + place.addr + '</p>' +
-        '<p style="font-size: 13px; color: #888;">' + place.type + ' \u2022 ' + Number(place.dist).toFixed(0) + 'm 거리</p>';
-      contentBox.appendChild(item);
-
-      overlayContent.addEventListener("click", () => map.panTo(latlng));
+        '<p class="place-title">' + place.title + '</p>' +
+        '<div class="place-meta">' +
+        '<span class="place-dist">' + Number(place.dist).toFixed(0) + 'm</span>' +
+        getTypeBadge(place.type) +
+        '</div>' +
+        '<p class="place-addr">' + place.addr + '</p>';
+      item.addEventListener("click", () => map.panTo(latlng));
+      grid.appendChild(item);
     });
+
+    currentFilter = "all";
   }
 
   function fetchNearbyPlaces(station) {
@@ -113,39 +250,29 @@
     $.ajax({
       url: "${cp}/nearbyPlaces?stationName=" + encodeURIComponent(stationName),
       method: "GET",
-      success: function(data) {
-        console.log("===== nearbyPlaces 응답 =====", data);
-        console.log("타입:", typeof data, Array.isArray(data));
-        drawPlaceMarkers(data); },
-      error: function() {
-        console.error("주변 장소 요청 실패", xhr, status, err);
-        alert("주변 장소 정보 못불러옴"); }
+      success: function(data) { drawPlaceMarkers(data, stationName); },
+      error: function() { alert("주변 장소 정보를 불러오지 못했습니다."); }
     });
   }
 
   function renderStations(segment) {
     if (!Array.isArray(segment) || segment.length === 0) return;
-
     const lineCoords = [];
 
     segment.forEach(station => {
       const lat = parseFloat(station.lat ?? station.LAT);
       const lng = parseFloat(station.lng ?? station.LOT);
-
-      if (isNaN(lat) || isNaN(lng)) {
-        console.warn("좌표 이상:", station);
-        return;
-      }
+      if (isNaN(lat) || isNaN(lng)) return;
 
       const latlng = new kakao.maps.LatLng(lat, lng);
       lineCoords.push(latlng);
 
       const markerContent = document.createElement("div");
       markerContent.style.cssText =
-        "width:10px; height:10px; border-radius:50%; background:white;" +
+        "width:10px;height:10px;border-radius:50%;background:white;" +
         "border:3px solid " + (station.lineColor || "#333") + ";" +
-        "cursor:pointer; transition:transform 0.15s;" +
-        "position:relative; transform:translate(-50%,-50%);";
+        "cursor:pointer;transition:transform 0.15s;" +
+        "position:relative;transform:translate(-50%,-50%);";
 
       markerContent.addEventListener("mouseenter", () => {
         markerContent.style.transform = "translate(-50%,-50%) scale(1.8)";
@@ -156,93 +283,70 @@
         markerContent.style.background = "white";
       });
 
-      const customOverlay = new kakao.maps.CustomOverlay({ position: latlng, content: markerContent, map: map });
+      new kakao.maps.CustomOverlay({ position: latlng, content: markerContent, map: map });
 
       const stationName = station.name || station.BLDN_NM || "";
       const tooltip = document.createElement("div");
       tooltip.style.cssText =
-        "position:absolute; bottom:18px; left:50%; transform:translateX(-50%);" +
-        "background:white; border-radius:6px; overflow:hidden;" +
-        "box-shadow:0 2px 8px rgba(0,0,0,0.18); white-space:nowrap; display:none; z-index:10;";
+        "position:absolute;bottom:18px;left:50%;transform:translateX(-50%);" +
+        "background:white;border-radius:6px;overflow:hidden;" +
+        "box-shadow:0 2px 8px rgba(0,0,0,0.18);white-space:nowrap;display:none;z-index:10;";
       tooltip.innerHTML =
-        '<div style="height:4px; background:' + (station.lineColor || "#333") + ';"></div>' +
-        '<div style="padding:5px 10px; font-size:12px; font-weight:600; color:#222;">' + stationName + '</div>';
+        '<div style="height:4px;background:' + (station.lineColor || "#333") + ';"></div>' +
+        '<div style="padding:5px 10px;font-size:12px;font-weight:600;color:#222;">' + stationName + '</div>';
       markerContent.appendChild(tooltip);
 
       markerContent.addEventListener("click", () => {
-        // 다른 툴팁 닫기
         document.querySelectorAll(".station-tooltip").forEach(el => el.style.display = "none");
         tooltip.style.display = "block";
         tooltip.classList.add("station-tooltip");
         fetchNearbyPlaces(station);
       });
 
-      markers.push(customOverlay);
+      markers.push(new kakao.maps.CustomOverlay({ position: latlng, content: markerContent, map: map }));
     });
 
     if (lineCoords.length === 0) return;
 
     const firstStation = segment[0];
-    const lineName = firstStation.lineName || firstStation.ROUTE || "";
-    const branchGroup = firstStation.branchGroup || firstStation.BranchGroup || "";
-
-    const isMainLoopLine = lineName === "2호선" && branchGroup === "main" && segment.length > 10;
+    const isMainLoopLine = (firstStation.lineName || "") === "2호선" &&
+      (firstStation.branchGroup || "") === "main" &&
+      segment.length > 10;
     const path = [...lineCoords];
     if (isMainLoopLine) path.push(path[0]);
 
-    const polyline = new kakao.maps.Polyline({
-      map: map,
-      path: path,
+    polylines.push(new kakao.maps.Polyline({
+      map: map, path: path,
       strokeWeight: 4,
       strokeColor: firstStation.lineColor || "#333",
       strokeOpacity: 0.9,
       strokeStyle: "solid"
-    });
-    polylines.push(polyline);
+    }));
   }
 
   function moveMapToFirstStation(data) {
-    let firstStation = null;
-    if (Array.isArray(data) && Array.isArray(data[0]) && data[0].length > 0) {
-      firstStation = data[0][0];
-    } else if (Array.isArray(data) && data.length > 0) {
-      firstStation = data[0];
-    }
-    if (!firstStation) return;
-
-    const lat = parseFloat(firstStation.lat ?? firstStation.LAT);
-    const lng = parseFloat(firstStation.lng ?? firstStation.LOT);
-    if (!isNaN(lat) && !isNaN(lng)) {
-      map.setCenter(new kakao.maps.LatLng(lat, lng));
-    }
+    let first = Array.isArray(data) && Array.isArray(data[0]) ? data[0][0]
+      : Array.isArray(data) ? data[0] : null;
+    if (!first) return;
+    const lat = parseFloat(first.lat ?? first.LAT);
+    const lng = parseFloat(first.lng ?? first.LOT);
+    if (!isNaN(lat) && !isNaN(lng)) map.setCenter(new kakao.maps.LatLng(lat, lng));
   }
 
   document.querySelectorAll(".line-item button").forEach(btn => {
     btn.addEventListener("click", () => {
-      const line = btn.value;
-      fetch("${cp}/lineinfo?lineName=" + encodeURIComponent(line))
-        .then(resp => {
-          if (!resp.ok) throw new Error("HTTP error! status: " + resp.status);
-          return resp.json();
-        })
+      fetch("${cp}/lineinfo?lineName=" + encodeURIComponent(btn.value))
+        .then(r => { if (!r.ok) throw new Error(); return r.json(); })
         .then(data => {
-          console.log("===== 서버 응답 =====", data);
           clearMap();
           moveMapToFirstStation(data);
-
           if (Array.isArray(data) && Array.isArray(data[0])) {
-            data.forEach((segment, index) => {
-              console.log("segment[" + index + "]:", segment);
-              renderStations(segment);
-            });
+            data.forEach(seg => renderStations(seg));
           } else {
             renderStations(data);
           }
         })
-        .catch(err => {
-          console.error("노선 정보 불러오기 실패:", err);
-          alert("노선 정보를 불러오지 못했습니다.");
-        });
+        .catch(() => alert("노선 정보를 불러오지 못했습니다."));
     });
   });
 </script>

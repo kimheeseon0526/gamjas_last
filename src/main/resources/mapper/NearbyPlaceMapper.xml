@@ -8,7 +8,7 @@
   <resultMap id="placeMap" type="domain.Place">
     <result property="stationName" column="station_name"/>
     <result property="title"       column="title"/>
-    <result property="lat"         column="lat"/>g
+    <result property="lat"         column="lat"/>
     <result property="lng"         column="lng"/>
     <result property="type"        column="type"/>
     <result property="addr"        column="addr"/>
